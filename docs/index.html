@@ -64,12 +64,18 @@ textarea{width:100%;min-height:320px;padding:14px;font:15px/1.6 var(--serif);col
 dialog{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);width:min(720px,94vw);padding:20px}
 dialog textarea{min-height:420px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;max-width:none}
 dialog::backdrop{background:rgba(0,0,0,.4)}
+dialog h3{font:600 15px var(--serif);margin:16px 0 4px}
+dialog ul{margin:0;padding-left:18px}
+dialog li{margin:5px 0}
+dialog li a{color:var(--accent);font-weight:600}
 @media (max-width:760px){main{grid-template-columns:1fr}aside{max-height:42vh;border-right:0;border-bottom:1px solid var(--line)}}
 </style>
 </head>
 <body>
 <header>
   <h1>Job agent</h1>
+  <button id="bBoards">Job boards</button>
+  <button id="bAdd">Add job</button>
   <button id="bSettings">Settings</button>
   <button id="bProfile">Edit profile</button>
   <button id="bReload">Reload jobs</button>
@@ -118,6 +124,30 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
   </form>
 </dialog>
 
+<dialog id="dlgBoards">
+  <form method="dialog">
+    <label for="boardQ" style="margin-top:0">What are you looking for?</label>
+    <input id="boardQ" type="text" value="wordpress developer">
+    <p class="hint">These sites have no public feed, so open a search, then save it or turn on email alerts. Found something good? Use "Add job" to score it and draft a letter here. Already loaded for you automatically: Remotive, RemoteOK, We Work Remotely, Jobicy, and the company boards in your config.</p>
+    <div id="boardList"></div>
+    <div class="actions"><button value="cancel">Close</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgAdd">
+  <form method="dialog">
+    <h3 style="margin-top:0">Add a job you found elsewhere</h3>
+    <label for="addTitle">Job title</label><input id="addTitle" type="text">
+    <label for="addCo">Company</label><input id="addCo" type="text">
+    <label for="addLoc">Location (optional)</label><input id="addLoc" type="text" placeholder="Remote, Philippines">
+    <label for="addUrl">Link to the posting</label><input id="addUrl" type="text" placeholder="https://...">
+    <label for="addDesc">Paste the job description</label>
+    <textarea id="addDesc" style="min-height:200px;font:13px/1.5 var(--sans);max-width:none"></textarea>
+    <p id="addNote" class="hint" role="status"></p>
+    <div class="actions"><button id="addSave" class="primary" type="button">Add to my queue</button><button value="cancel">Close</button></div>
+  </form>
+</dialog>
+
 <dialog id="dlgMan">
   <form method="dialog">
     <h3 id="manTitle" style="font:600 18px var(--serif);margin:0 0 4px"></h3>
@@ -147,12 +177,13 @@ const TABS = {
   applied:['Applied',['applied']],
   skipped:['Skipped',['skipped']]
 };
-let feed = [], meta = {}, profile = {}, state = {}, tab = 'review', sel = null;
+let feed = [], meta = {}, profile = {}, state = {}, mine = [], tab = 'review', sel = null;
 try { state = JSON.parse(LS('ja.state') || '{}'); } catch { state = {}; }
+try { mine = JSON.parse(LS('ja.mine') || '[]'); } catch { mine = []; }
 
 const cls = s => s == null ? '' : s >= 75 ? 'good' : s >= 50 ? 'mid' : 'bad';
 const msg = t => $('#msg').textContent = t || '';
-const all = () => feed.map(j => ({status:'new', ...j, ...(state[j.id] || {})}))
+const all = () => [...mine, ...feed].map(j => ({status:'new', ...j, ...(state[j.id] || {})}))
   .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 function upd(id, p, note) {
   state[id] = {...(state[id] || {}), ...p};
@@ -210,7 +241,7 @@ async function manualScore() {
   if (!todo.length) { msg('Nothing new to score.'); return; }
   manual(`Score ${todo.length} jobs`, batchPrompt(todo), t => {
     const arr = JSON.parse(t.match(/\[[\s\S]*\]/)[0]); let n = 0;
-    for (const d of arr) if (feed.some(j => j.id === d.id)) {
+    for (const d of arr) if (all().some(j => j.id === d.id)) {
       upd(d.id, {score: Math.max(0, Math.min(100, Math.round(+d.score))), reasons: d.reasons || [], flags: d.red_flags || [], status: 'scored'}); n++;
     }
     if (!n) throw new Error('No matching job ids found in that reply.');
@@ -246,7 +277,7 @@ function renderDetail() {
   const open = ['approved','applied'].includes(j.status);
   d.innerHTML = `
     <h2>${esc(j.title)}</h2>
-    <div class="meta">${esc(j.company)} · ${esc(j.location || 'No location listed')} · <a href="${esc(j.url)}" target="_blank" rel="noopener">View posting</a></div>
+    <div class="meta">${esc(j.company)} · ${esc(j.location || 'No location listed')} ${j.url ? ` · <a href="${esc(j.url)}" target="_blank" rel="noopener">View posting</a>` : ''}</div>
     <div class="fit">
       <div class="big ${cls(j.score)}">${j.score ?? '–'}</div>
       <ul>${(j.reasons||[]).map(r=>`<li>${esc(r)}</li>`).join('')}${(j.flags||[]).map(f=>`<li class="flag">${esc(f)}</li>`).join('')}
@@ -272,7 +303,7 @@ function renderDetail() {
   $('#aSkip').onclick = () => upd(j.id, {status:'skipped'}, 'Skipped');
   if ($('#aApprove')) $('#aApprove').onclick = () => upd(j.id, {status:'approved', cover_letter: letter()}, 'Approved');
   if ($('#aApplied')) $('#aApplied').onclick = () => upd(j.id, {status:'applied'}, 'Marked applied');
-  if ($('#aOpen')) $('#aOpen').onclick = async () => { await navigator.clipboard.writeText(letter()).catch(()=>{}); window.open(j.url, '_blank', 'noopener'); msg('Cover letter copied. Paste it into the application.'); };
+  if ($('#aOpen')) $('#aOpen').onclick = async () => { await navigator.clipboard.writeText(letter()).catch(()=>{}); if (j.url) window.open(j.url, '_blank', 'noopener'); msg('Cover letter copied. Paste it into the application.'); };
   if ($('#aCopy')) $('#aCopy').onclick = async () => { await navigator.clipboard.writeText(letter()); msg('Cover letter copied'); };
 }
 
@@ -316,6 +347,43 @@ $('#manGo').onclick = () => {
   try { manCb($('#manReply').value); $('#dlgMan').close(); }
   catch (e) { $('#manNote').textContent = 'Could not import: ' + e.message; }
 };
+const enc = encodeURIComponent, slug = q => q.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const BOARDS = [
+  ['Philippines-based or Philippines-friendly', [
+    ['OnlineJobs.ph', 'Filipino remote workers hired directly by overseas employers', q => `https://www.onlinejobs.ph/jobseekers/jobsearch?jobkeyword=${enc(q)}`],
+    ['JobStreet Philippines', 'Largest local board, filter to remote', q => `https://ph.jobstreet.com/${slug(q)}-jobs/remote`],
+    ['Indeed Philippines', 'Set the location to Remote', q => `https://ph.indeed.com/jobs?q=${enc(q)}&l=Remote`],
+    ['LinkedIn (Philippines, remote)', 'Use "Easy Apply" only when it fits; set job alerts', q => `https://www.linkedin.com/jobs/search/?keywords=${enc(q)}&location=Philippines&f_WT=2`],
+    ['Kalibrr', 'Philippines-focused tech and startup roles; search on the site', 'https://www.kalibrr.com/'],
+    ['Remote Staff', 'Remote jobs for Filipinos, web development section', 'https://www.remotestaff.ph/web-development-jobs'],
+    ['PhilJobNet', 'Free government job portal (DOLE)', 'https://philjobnet.gov.ph/']
+  ]],
+  ['Global remote, open to applicants in the Philippines', [
+    ['Jobgether', 'Remote WordPress listings, some marked "Remote from Philippines"', 'https://jobgether.com/remote-jobs/wordpress'],
+    ['Hubstaff Talent', 'Remote and freelance profiles and jobs', 'https://talent.hubstaff.com/'],
+    ['Wellfound', 'Startup jobs, filter to remote', 'https://wellfound.com/jobs'],
+    ['Working Nomads', 'Curated remote jobs', 'https://www.workingnomads.com/jobs'],
+    ['Himalayas', 'Remote jobs with location filters', 'https://himalayas.app/jobs']
+  ]],
+  ['Freelance', [
+    ['Upwork', 'Project-based; good for portfolio and quick starts', q => `https://www.upwork.com/nx/search/jobs/?q=${enc(q)}`]
+  ]]
+];
+function renderBoards() {
+  const q = $('#boardQ').value.trim() || 'wordpress developer';
+  $('#boardList').innerHTML = BOARDS.map(([g, items]) => `<h3>${esc(g)}</h3><ul>` + items.map(([n, d, u]) =>
+    `<li><a href="${esc(typeof u === 'function' ? u(q) : u)}" target="_blank" rel="noopener">${esc(n)}</a> <span class="hint">${esc(d)}</span></li>`).join('') + '</ul>').join('');
+}
+$('#bBoards').onclick = () => { renderBoards(); $('#dlgBoards').showModal(); };
+$('#boardQ').oninput = renderBoards;
+$('#bAdd').onclick = () => { ['addTitle','addCo','addLoc','addUrl','addDesc'].forEach(i => $('#' + i).value = ''); $('#addNote').textContent = ''; $('#dlgAdd').showModal(); };
+$('#addSave').onclick = () => {
+  const t = $('#addTitle').value.trim(), c = $('#addCo').value.trim(), d = $('#addDesc').value.trim();
+  if (!t || !c || !d) { $('#addNote').textContent = 'Add a title, a company, and the job description.'; return; }
+  const job = {id: 'me:' + Date.now(), source: 'manual', company: c, title: t, location: $('#addLoc').value.trim(), url: $('#addUrl').value.trim(), description: d.slice(0, 5000)};
+  mine.unshift(job); localStorage.setItem('ja.mine', JSON.stringify(mine));
+  tab = 'review'; sel = job.id; $('#dlgAdd').close(); render(); msg('Job added to your queue.');
+};
 $('#bSettings').onclick = () => { $('#keyIn').value = LS('ja.key') || ''; $('#modelIn').value = LS('ja.model') || ''; $('#dlgSet').showModal(); };
 $('#bSetSave').onclick = () => {
   const k = $('#keyIn').value.trim(), m = $('#modelIn').value.trim();
@@ -325,7 +393,7 @@ $('#bSetSave').onclick = () => {
 };
 $('#bExport').onclick = () => {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify({state, profile}, null, 2)], {type:'application/json'}));
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({state, profile, mine}, null, 2)], {type:'application/json'}));
   a.download = 'job-agent-progress.json'; a.click();
 };
 $('#bImport').onclick = () => $('#fileIn').click();
@@ -333,6 +401,7 @@ $('#fileIn').onchange = async e => {
   try {
     const d = JSON.parse(await e.target.files[0].text());
     state = d.state || {}; localStorage.setItem('ja.state', JSON.stringify(state));
+    if (d.mine) { mine = d.mine; localStorage.setItem('ja.mine', JSON.stringify(mine)); }
     if (d.profile) { profile = d.profile; localStorage.setItem('ja.profile', JSON.stringify(profile)); }
     render(); msg('Progress imported');
   } catch (err) { msg('Import failed: ' + err.message); }

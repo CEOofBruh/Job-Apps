@@ -1,5 +1,6 @@
 """Fetch jobs from public job-board APIs and write docs/jobs.json. Standard library only."""
 import datetime, html, json, pathlib, re, urllib.parse, urllib.request
+import xml.etree.ElementTree as ET
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "jobs.json"
@@ -10,6 +11,11 @@ KEEP_DAYS = 21
 def get(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r:
         return json.load(r)
+
+
+def get_text(url):
+    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r:
+        return r.read()
 
 
 def strip(h):
@@ -56,7 +62,39 @@ def remoteok(_, cfg):
                    description=strip(j.get("description")))
 
 
-FETCHERS = dict(greenhouse=greenhouse, lever=lever, ashby=ashby, remotive=remotive, remoteok=remoteok)
+def jobicy(_, cfg):
+    for term in cfg.get("jobicy_searches", []):
+        data = get("https://jobicy.com/api/v2/remote-jobs?count=50&tag=" + urllib.parse.quote(term))
+        for j in data.get("jobs", []):
+            geo = j.get("jobGeo", "")
+            if isinstance(geo, list):
+                geo = ", ".join(geo)
+            yield dict(id=f"jc:{j['id']}", source="jobicy", company=j.get("companyName", ""),
+                       title=j.get("jobTitle", ""), location=geo or "", url=j.get("url", ""),
+                       description=strip(j.get("jobDescription") or j.get("jobExcerpt")))
+
+
+WWR_DEFAULT = ["remote-front-end-programming-jobs", "remote-full-stack-programming-jobs", "remote-design-jobs"]
+
+
+def weworkremotely(_, cfg):
+    for slug in cfg.get("wwr_feeds", WWR_DEFAULT):
+        root = ET.fromstring(get_text(f"https://weworkremotely.com/categories/{slug}.rss"))
+        for it in root.iter("item"):
+            link = (it.findtext("link") or "").strip()
+            if not link:
+                continue
+            full = (it.findtext("title") or "").strip()
+            company, sep, title = full.partition(": ")
+            if not sep:
+                company, title = "", full
+            yield dict(id="ww:" + link.rstrip("/").rsplit("/", 1)[-1], source="weworkremotely",
+                       company=company, title=title, location=it.findtext("region") or "",
+                       url=link, description=strip(it.findtext("description")))
+
+
+FETCHERS = dict(greenhouse=greenhouse, lever=lever, ashby=ashby, remotive=remotive, remoteok=remoteok,
+                jobicy=jobicy, weworkremotely=weworkremotely)
 
 
 def matches(job, cfg):

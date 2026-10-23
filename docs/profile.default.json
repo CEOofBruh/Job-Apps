@@ -1,0 +1,46 @@
+{
+  "name": "Joshua Isaiah Codorniz",
+  "headline": "Web Designer / Web Developer",
+  "location": "Legazpi City, Bicol, Philippines",
+  "links": ["https://www.behance.net/joshuacodorni", "https://www.linkedin.com/in/joshua-codorniz-a39036249"],
+  "summary": "Frontend-focused digital professional and developer with 4 years of experience building scalable WordPress sites and custom plugin solutions, paired with Go High Level (GHL) automation expertise. Skilled in site performance optimization, third-party API integrations, and end-to-end user experience design, backed by 2 years of visual design and content management across print and digital media.",
+  "experience": [
+    {
+      "company": "Icons of Real Estate (remote)",
+      "title": "Web Designer / Web Developer",
+      "dates": "04/2026 - 10/2026",
+      "highlights": [
+        "Designed, built, and customized responsive web pages using modern front-end tools, CMS platforms, and custom styling",
+        "Built custom backend solutions for invoicing, invoice generation, and payment",
+        "Diagnosed and resolved front-end UI/UX conflicts, JavaScript runtime errors, and back-end integration issues",
+        "Built and maintained automated workflows, custom webhooks, and form integrations across GoHighLevel, MailerLite, and Tawk.to",
+        "Configured, tested, and debugged e-commerce payment flows, custom API parameters, and gateway setups such as Stripe",
+        "Managed DNS, API tokens, third-party plugin configurations, and site infrastructure updates"
+      ]
+    },
+    {
+      "company": "SEO for Real Estate Investors / Grumpy Hare (remote)",
+      "title": "Web Designer / Web Developer",
+      "dates": "03/2025 - 04/2026",
+      "highlights": [
+        "Designed interactive user interfaces that met modern web standards and client specifications",
+        "Increased online visitor engagement with multimedia elements, animations, and call-to-action buttons"
+      ]
+    },
+    {
+      "company": "Bicol University, Legazpi City",
+      "title": "Digital Media Content Manager",
+      "dates": "07/2022 - 01/2024",
+      "highlights": [
+        "Managed and updated the university's official website, handling edit requests from different offices and organizations",
+        "Developed and managed content to meet deadlines and engagement goals, collaborating with writers on brand-aligned content",
+        "Used the content management system to analyze user engagement and website traffic metrics",
+        "Managed multiple projects at once under tight deadlines"
+      ]
+    }
+  ],
+  "skills": ["HTML", "CSS", "WordPress", "Elementor", "Responsive design", "UI/UX design", "Layout design", "Adobe Creative Suite", "Go High Level", "Stripe", "Website maintenance", "Troubleshooting"],
+  "education": ["BS Computer Science, Bicol University, Legazpi City, 2022"],
+  "work_authorization": "Based in the Philippines; has worked fully remote",
+  "writing_notes": "Direct and warm. Concrete over buzzwords. Short paragraphs."
+}

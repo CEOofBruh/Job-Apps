@@ -1,0 +1,27 @@
+{
+  "target_titles": [
+    "web designer", "web developer", "website", "wordpress", "front-end", "front end", "frontend",
+    "ui/ux", "ux/ui", "ui designer", "visual designer", "graphic designer", "elementor",
+    "go high level", "gohighlevel", "ghl", "automation specialist", "funnel",
+    "digital media", "content manager"
+  ],
+  "exclude_keywords": ["intern", "principal", "director", "head of", "vp ", "staff "],
+  "locations": ["remote", "worldwide", "anywhere", "global", "philippines", "apac", "asia"],
+  "exclude_locations": [
+    "usa only", "us only", "u.s. only", "united states only", "canada only", "uk only",
+    "europe only", "eu only", "remote - us", "remote (us)", "remote, us"
+  ],
+  "remotive_searches": ["wordpress", "web designer", "web developer", "frontend", "go high level"],
+  "sources": [
+    {"type": "remotive"},
+    {"type": "remoteok"},
+    {"type": "greenhouse", "token": "webflow"},
+    {"type": "greenhouse", "token": "gitlab"},
+    {"type": "greenhouse", "token": "vercel"},
+    {"type": "greenhouse", "token": "wpengine"},
+    {"type": "greenhouse", "token": "remotecom"},
+    {"type": "ashby", "token": "zapier"},
+    {"type": "ashby", "token": "supabase"},
+    {"type": "ashby", "token": "deel"}
+  ]
+}

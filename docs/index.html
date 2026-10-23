@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job agent</title>
+<style>
+:root{
+  --ink:#1c2733; --muted:#5d6b79; --paper:#eef1f4; --panel:#fff; --line:#d5dce3;
+  --accent:#0f6b73; --accent-ink:#fff;
+  --good:#2c7a4b; --mid:#a8741a; --bad:#a8433a; --none:#b7c0c9;
+  --serif:Charter,"Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--ink:#e6ebf0;--muted:#9aa8b6;--paper:#13191f;--panel:#1b232b;--line:#2c3742;--accent:#4db6bf;--accent-ink:#0b1418;
+  --good:#58b57a;--mid:#d9a441;--bad:#e0766c;--none:#475562}
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:15px/1.5 var(--sans);color:var(--ink);background:var(--paper);display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{font:600 20px var(--serif);margin:0 auto 0 0}
+button{font:inherit;padding:7px 14px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:wait}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#msg{padding:6px 20px;color:var(--muted);min-height:32px;font-size:14px}
+#errs{padding:0 20px 6px;color:var(--bad);font-size:13px;white-space:pre-wrap}
+#errs:empty{display:none}
+main{flex:1;display:grid;grid-template-columns:minmax(280px,380px) 1fr;min-height:0;border-top:1px solid var(--line)}
+aside{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel)}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;border-radius:0;background:none;padding:10px 4px;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+#list{overflow:auto;flex:1}
+.item{display:grid;grid-template-columns:44px 1fr;border:0;border-bottom:1px solid var(--line);cursor:pointer;width:100%;text-align:left;border-radius:0;padding:0}
+.item[aria-current=true]{background:var(--paper)}
+.item .sc{display:flex;align-items:center;justify-content:center;font:600 17px var(--serif);color:#fff;background:var(--none)}
+.item .sc.good{background:var(--good)}.item .sc.mid{background:var(--mid)}.item .sc.bad{background:var(--bad)}
+.item .tx{padding:10px 12px;min-width:0}
+.item .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .c{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+section#detail{overflow:auto;padding:24px 28px;min-width:0}
+.empty{color:var(--muted);padding:28px 20px}
+.empty b{display:block;color:var(--ink);font:600 17px var(--serif);margin-bottom:4px}
+h2{font:600 26px/1.2 var(--serif);margin:0 0 4px}
+.meta{color:var(--muted);margin-bottom:16px}
+.meta a{color:var(--accent)}
+.fit{display:flex;gap:16px;align-items:flex-start;margin-bottom:18px}
+.fit .big{font:600 40px/1 var(--serif);min-width:64px}
+.fit .big.good{color:var(--good)}.fit .big.mid{color:var(--mid)}.fit .big.bad{color:var(--bad)}
+.fit ul{margin:0;padding-left:18px}
+.fit li.flag{color:var(--bad)}
+details{margin:14px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+summary{padding:9px 14px;cursor:pointer;font-weight:600}
+details .body{padding:0 14px 12px;max-height:260px;overflow:auto;white-space:pre-wrap;color:var(--muted);max-width:80ch}
+label{display:block;font-weight:600;margin:18px 0 6px}
+input[type=text],input[type=password]{width:100%;padding:8px 10px;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:6px}
+textarea{width:100%;min-height:320px;padding:14px;font:15px/1.6 var(--serif);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;resize:vertical;max-width:80ch;display:block}
+.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:13px;margin:6px 0 0}
+dialog{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);width:min(720px,94vw);padding:20px}
+dialog textarea{min-height:420px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;max-width:none}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+@media (max-width:760px){main{grid-template-columns:1fr}aside{max-height:42vh;border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Job agent</h1>
+  <button id="bSettings">Settings</button>
+  <button id="bProfile">Edit profile</button>
+  <button id="bReload">Reload jobs</button>
+  <button id="bScore" class="primary">Score new jobs</button>
+</header>
+<div id="msg" role="status" aria-live="polite"></div>
+<div id="errs"></div>
+<main>
+  <aside>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="list"></div>
+  </aside>
+  <section id="detail"></section>
+</main>
+
+<dialog id="dlgSet">
+  <form method="dialog">
+    <label for="keyIn" style="margin-top:0">Anthropic API key (optional)</label>
+    <input id="keyIn" type="password" autocomplete="off" placeholder="sk-ant-...">
+    <p class="hint">Leave this empty to run free: the app prepares prompts for you to paste into Claude chat. With a key, scoring and drafting happen automatically. The key stays in this browser only and goes straight to Anthropic. Never put it in the repo. Use a key with a low spending limit.</p>
+    <label for="modelIn">Model</label>
+    <input id="modelIn" type="text" placeholder="claude-sonnet-5-5">
+    <label>Your progress (scores, letters, statuses)</label>
+    <div class="actions" style="margin-top:0">
+      <button id="bExport" type="button">Export to file</button>
+      <button id="bImport" type="button">Import from file</button>
+      <input id="fileIn" type="file" accept="application/json" hidden>
+    </div>
+    <p class="hint">Progress lives in this browser. Export it to move to another device or keep a backup.</p>
+    <div class="actions">
+      <button id="bSetSave" class="primary" type="button">Save settings</button>
+      <button value="cancel">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgProf">
+  <form method="dialog">
+    <label for="profTxt" style="margin-top:0">Profile (JSON). Cover letters use only what is written here.</label>
+    <textarea id="profTxt" spellcheck="false"></textarea>
+    <div class="actions">
+      <button id="bProfSave" class="primary" type="button">Save profile</button>
+      <button id="bProfReset" type="button">Reset to resume defaults</button>
+      <button value="cancel">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgMan">
+  <form method="dialog">
+    <h3 id="manTitle" style="font:600 18px var(--serif);margin:0 0 4px"></h3>
+    <label style="margin-top:8px">1. Copy this prompt and paste it into a Claude chat</label>
+    <textarea id="manPrompt" readonly style="min-height:130px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;max-width:none"></textarea>
+    <div class="actions">
+      <button id="manCopy" type="button">Copy prompt</button>
+      <button id="manOpen" type="button">Open Claude</button>
+    </div>
+    <label>2. Paste Claude's reply here</label>
+    <textarea id="manReply" style="min-height:130px;font-size:13px;max-width:none"></textarea>
+    <p id="manNote" class="hint" role="status"></p>
+    <div class="actions">
+      <button id="manGo" class="primary" type="button">Import reply</button>
+      <button value="cancel">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LS = k => localStorage.getItem(k);
+const TABS = {
+  review:['Review',['new','scored','drafted']],
+  approved:['Approved',['approved']],
+  applied:['Applied',['applied']],
+  skipped:['Skipped',['skipped']]
+};
+let feed = [], meta = {}, profile = {}, state = {}, tab = 'review', sel = null;
+try { state = JSON.parse(LS('ja.state') || '{}'); } catch { state = {}; }
+
+const cls = s => s == null ? '' : s >= 75 ? 'good' : s >= 50 ? 'mid' : 'bad';
+const msg = t => $('#msg').textContent = t || '';
+const all = () => feed.map(j => ({status:'new', ...j, ...(state[j.id] || {})}))
+  .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+function upd(id, p, note) {
+  state[id] = {...(state[id] || {}), ...p};
+  localStorage.setItem('ja.state', JSON.stringify(state));
+  render(); if (note) msg(note);
+}
+
+/* ---------- Claude (called straight from the browser with your own key) ---------- */
+async function claude(system, user, max) {
+  const key = LS('ja.key');
+  if (!key) throw new Error('Add your Anthropic API key in Settings first.');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({model: LS('ja.model') || 'claude-sonnet-5-5', max_tokens: max, system, messages:[{role:'user', content:user}]})
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error?.message || ('HTTP ' + r.status));
+  return d.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+}
+const ctx = j => `CANDIDATE PROFILE:\n${JSON.stringify(profile, null, 2)}\n\nJOB POSTING:\nCompany: ${j.company}\nTitle: ${j.title}\nLocation: ${j.location}\n\n${(j.description || '').slice(0, 6000)}`;
+
+const SCORE_SYS = `You assess how well a job posting fits a candidate.
+Judge only from the candidate profile and the posting. Be honest and calibrated:
+90+ is a rare near-perfect fit, 70-89 strong, 50-69 plausible stretch, below 50 weak.
+Reply with JSON only, no other text:
+{"score": <0-100>, "reasons": ["short reason", ...], "red_flags": ["short flag", ...]}
+Give 2-4 reasons. Red flags cover things like seniority mismatch, location or work-authorization
+conflicts (the candidate is based in the Philippines), and missing must-have skills. Use [] if none.`;
+
+const LETTER_SYS = `You write cover letters for the candidate described in the profile.
+Hard rules:
+- Use ONLY facts present in the profile. Never invent employers, titles, numbers, tools, degrees, or experience.
+  If the posting wants something the profile lacks, do not claim it; emphasize adjacent real strengths instead.
+- 200-280 words. Plain, direct voice. No "I am writing to express", no "passionate", no "dynamic", no filler openers.
+- Open with the specific reason this role and company fit, not with who the candidate is.
+- Pick 2-3 of the most relevant real accomplishments and tie them to the posting.
+- Address "Hiring team" unless a name appears in the posting.
+- End with a short, confident closing line and the candidate's name.
+- Follow the candidate's writing_notes if present.
+Output the letter text only.`;
+
+const SCORE_BATCH_SYS = SCORE_SYS.replace(/Reply with JSON only[\s\S]*?\n(?=Give 2-4)/,
+  'Reply with a JSON array only, no other text, one object per job, using each id exactly as given:\n[{"id": "<id>", "score": <0-100>, "reasons": ["short reason"], "red_flags": ["short flag"]}]\n');
+const batchPrompt = jobs => `${SCORE_BATCH_SYS}\n\nCANDIDATE PROFILE:\n${JSON.stringify(profile)}\n\nJOBS:\n` +
+  jobs.map(j => `--- id: ${j.id}\nCompany: ${j.company}\nTitle: ${j.title}\nLocation: ${j.location}\n${(j.description || '').slice(0, 1500)}`).join('\n\n');
+
+let manCb = null;
+function manual(title, prompt, cb) {
+  $('#manTitle').textContent = title; $('#manPrompt').value = prompt;
+  $('#manReply').value = ''; $('#manNote').textContent = ''; manCb = cb; $('#dlgMan').showModal();
+}
+async function manualScore() {
+  const todo = all().filter(j => j.score == null && j.status === 'new').slice(0, 10);
+  if (!todo.length) { msg('Nothing new to score.'); return; }
+  manual(`Score ${todo.length} jobs`, batchPrompt(todo), t => {
+    const arr = JSON.parse(t.match(/\[[\s\S]*\]/)[0]); let n = 0;
+    for (const d of arr) if (feed.some(j => j.id === d.id)) {
+      upd(d.id, {score: Math.max(0, Math.min(100, Math.round(+d.score))), reasons: d.reasons || [], flags: d.red_flags || [], status: 'scored'}); n++;
+    }
+    if (!n) throw new Error('No matching job ids found in that reply.');
+    msg(`Imported ${n} score${n === 1 ? '' : 's'}.`);
+  });
+}
+
+async function scoreJob(j) {
+  const t = await claude(SCORE_SYS, ctx(j), 600);
+  const d = JSON.parse(t.match(/\{[\s\S]*\}/)[0]);
+  return {score: Math.max(0, Math.min(100, Math.round(+d.score))), reasons: d.reasons || [], flags: d.red_flags || [], status:'scored'};
+}
+
+/* ---------- UI ---------- */
+function render() {
+  const jobs = all();
+  $('#tabs').innerHTML = Object.entries(TABS).map(([k,[label,st]]) =>
+    `<button role="tab" data-tab="${k}" aria-selected="${k===tab}">${label} (${jobs.filter(j=>st.includes(j.status)).length})</button>`).join('');
+  const rows = jobs.filter(j => TABS[tab][1].includes(j.status));
+  $('#list').innerHTML = rows.length ? rows.map(j =>
+    `<button class="item" data-id="${esc(j.id)}" aria-current="${j.id===sel}">
+      <div class="sc ${cls(j.score)}">${j.score ?? '–'}</div>
+      <div class="tx"><div class="t">${esc(j.title)}</div><div class="c">${esc(j.company)} · ${esc(j.location || 'No location listed')}</div></div>
+    </button>`).join('')
+    : `<div class="empty"><b>${tab==='review' ? (feed.length ? 'Nothing left to review' : 'No jobs loaded yet') : 'Nothing here yet'}</b>${
+      tab==='review' ? (feed.length ? 'Check the other tabs, or reload tomorrow for fresh postings.' : 'In your GitHub repo, open Actions, choose “Fetch jobs”, and run it. Then choose “Reload jobs” here.') : 'Jobs you move here will show up in this list.'}</div>`;
+  renderDetail();
+}
+
+function renderDetail() {
+  const j = all().find(x => x.id === sel), d = $('#detail');
+  if (!j) { d.innerHTML = '<div class="empty"><b>Pick a job</b>Select one on the left to see the fit, edit the cover letter, and decide.</div>'; return; }
+  const open = ['approved','applied'].includes(j.status);
+  d.innerHTML = `
+    <h2>${esc(j.title)}</h2>
+    <div class="meta">${esc(j.company)} · ${esc(j.location || 'No location listed')} · <a href="${esc(j.url)}" target="_blank" rel="noopener">View posting</a></div>
+    <div class="fit">
+      <div class="big ${cls(j.score)}">${j.score ?? '–'}</div>
+      <ul>${(j.reasons||[]).map(r=>`<li>${esc(r)}</li>`).join('')}${(j.flags||[]).map(f=>`<li class="flag">${esc(f)}</li>`).join('')}
+      ${j.score==null?'<li>Not scored yet. Choose “Score new jobs”.</li>':''}</ul>
+    </div>
+    <details><summary>Job description</summary><div class="body">${esc(j.description)}</div></details>
+    <label for="letter">Cover letter</label>
+    <textarea id="letter" placeholder="No draft yet. Choose “Draft cover letter”.">${esc(j.cover_letter || '')}</textarea>
+    <div class="actions">
+      <button id="aDraft">${j.cover_letter ? 'Redraft' : 'Draft cover letter'}</button>
+      <button id="aSave">Save edits</button>
+      ${open
+        ? `<button id="aOpen" class="primary">Open application</button><button id="aCopy">Copy cover letter</button>${j.status==='approved'?'<button id="aApplied">Mark applied</button>':''}`
+        : `<button id="aApprove" class="primary">Approve</button>`}
+      <button id="aSkip">Skip</button>
+    </div>`;
+  const letter = () => $('#letter').value;
+  const setDraft = t => upd(j.id, {cover_letter: t, status: j.status==='new'||j.status==='scored' ? 'drafted' : j.status});
+  $('#aDraft').onclick = () => LS('ja.key')
+    ? run('Drafting…', async () => setDraft(await claude(LETTER_SYS, ctx(j), 900)))
+    : manual('Draft a cover letter', LETTER_SYS + '\n\n' + ctx(j), t => { if (!t.trim()) throw new Error('Paste the letter first.'); setDraft(t.trim()); });
+  $('#aSave').onclick = () => upd(j.id, {cover_letter: letter()}, 'Saved');
+  $('#aSkip').onclick = () => upd(j.id, {status:'skipped'}, 'Skipped');
+  if ($('#aApprove')) $('#aApprove').onclick = () => upd(j.id, {status:'approved', cover_letter: letter()}, 'Approved');
+  if ($('#aApplied')) $('#aApplied').onclick = () => upd(j.id, {status:'applied'}, 'Marked applied');
+  if ($('#aOpen')) $('#aOpen').onclick = async () => { await navigator.clipboard.writeText(letter()).catch(()=>{}); window.open(j.url, '_blank', 'noopener'); msg('Cover letter copied. Paste it into the application.'); };
+  if ($('#aCopy')) $('#aCopy').onclick = async () => { await navigator.clipboard.writeText(letter()); msg('Cover letter copied'); };
+}
+
+async function run(label, fn) {
+  document.querySelectorAll('button').forEach(b => b.disabled = true); msg(label);
+  try { await fn(); if ($('#msg').textContent === label) msg(''); } catch (e) { msg('Error: ' + e.message); }
+  document.querySelectorAll('button').forEach(b => b.disabled = false);
+}
+
+async function loadFeed() {
+  const f = await (await fetch('jobs.json', {cache:'no-store'})).json();
+  feed = f.jobs || []; meta = f;
+  $('#errs').textContent = (f.errors || []).length ? 'Some sources failed (check the token or board name in config.json):\n' + f.errors.join('\n') : '';
+  msg(f.updated ? `Jobs updated ${new Date(f.updated).toLocaleString()} · ${feed.length} postings` : '');
+  render();
+}
+async function defaultProfile() { return (await fetch('profile.default.json')).json(); }
+
+$('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; render(); } };
+$('#list').onclick = e => { const b = e.target.closest('[data-id]'); if (b) { sel = b.dataset.id; render(); } };
+$('#bReload').onclick = () => run('Reloading…', async () => { await loadFeed(); });
+const autoScore = () => run('Scoring up to 10 jobs…', async () => {
+  const todo = all().filter(j => j.score == null && j.status === 'new').slice(0, 10);
+  if (!todo.length) { msg('Nothing new to score.'); return; }
+  let n = 0, bad = [];
+  for (const j of todo) {
+    msg(`Scoring ${++n} of ${todo.length}…`);
+    try { upd(j.id, await scoreJob(j)); } catch (e) { bad.push(e.message); if (/API key/.test(e.message)) break; }
+  }
+  msg(`Scored ${n - bad.length} job${n - bad.length === 1 ? '' : 's'}.` + (bad.length ? ' Problem: ' + bad[0] : ''));
+});
+$('#bScore').onclick = () => LS('ja.key') ? autoScore() : manualScore();
+
+$('#manCopy').onclick = async () => {
+  $('#manPrompt').select();
+  try { await navigator.clipboard.writeText($('#manPrompt').value); $('#manNote').textContent = 'Prompt copied.'; }
+  catch { $('#manNote').textContent = 'Press Ctrl+C (Cmd+C on Mac) to copy the selected text.'; }
+};
+$('#manOpen').onclick = () => window.open('https://claude.ai/new', '_blank', 'noopener');
+$('#manGo').onclick = () => {
+  try { manCb($('#manReply').value); $('#dlgMan').close(); }
+  catch (e) { $('#manNote').textContent = 'Could not import: ' + e.message; }
+};
+$('#bSettings').onclick = () => { $('#keyIn').value = LS('ja.key') || ''; $('#modelIn').value = LS('ja.model') || ''; $('#dlgSet').showModal(); };
+$('#bSetSave').onclick = () => {
+  const k = $('#keyIn').value.trim(), m = $('#modelIn').value.trim();
+  k ? localStorage.setItem('ja.key', k) : localStorage.removeItem('ja.key');
+  m ? localStorage.setItem('ja.model', m) : localStorage.removeItem('ja.model');
+  $('#dlgSet').close(); msg('Settings saved');
+};
+$('#bExport').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({state, profile}, null, 2)], {type:'application/json'}));
+  a.download = 'job-agent-progress.json'; a.click();
+};
+$('#bImport').onclick = () => $('#fileIn').click();
+$('#fileIn').onchange = async e => {
+  try {
+    const d = JSON.parse(await e.target.files[0].text());
+    state = d.state || {}; localStorage.setItem('ja.state', JSON.stringify(state));
+    if (d.profile) { profile = d.profile; localStorage.setItem('ja.profile', JSON.stringify(profile)); }
+    render(); msg('Progress imported');
+  } catch (err) { msg('Import failed: ' + err.message); }
+};
+
+$('#bProfile').onclick = () => { $('#profTxt').value = JSON.stringify(profile, null, 2); $('#dlgProf').showModal(); };
+$('#bProfSave').onclick = () => {
+  try { profile = JSON.parse($('#profTxt').value); localStorage.setItem('ja.profile', JSON.stringify(profile)); $('#dlgProf').close(); msg('Profile saved'); }
+  catch (e) { msg('Profile not saved: ' + e.message); }
+};
+$('#bProfReset').onclick = async () => {
+  profile = await defaultProfile(); localStorage.removeItem('ja.profile');
+  $('#profTxt').value = JSON.stringify(profile, null, 2); msg('Profile reset to resume defaults');
+};
+
+(async () => {
+  try { profile = JSON.parse(LS('ja.profile') || 'null') || await defaultProfile(); } catch { profile = await defaultProfile(); }
+  try { await loadFeed(); } catch (e) { msg('Could not load jobs.json: ' + e.message); render(); }
+})();
+</script>
+</body>
+</html>

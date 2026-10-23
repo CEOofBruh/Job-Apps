@@ -12,14 +12,16 @@
     "europe only", "eu only", "remote - us", "remote (us)", "remote, us"
   ],
   "remotive_searches": ["wordpress", "web designer", "web developer", "frontend", "go high level"],
+  "jobicy_searches": ["wordpress", "web designer", "web developer", "go high level"],
+  "wwr_feeds": ["remote-front-end-programming-jobs", "remote-full-stack-programming-jobs", "remote-design-jobs"],
   "sources": [
     {"type": "remotive"},
     {"type": "remoteok"},
+    {"type": "jobicy"},
+    {"type": "weworkremotely"},
     {"type": "greenhouse", "token": "webflow"},
     {"type": "greenhouse", "token": "gitlab"},
     {"type": "greenhouse", "token": "vercel"},
-    {"type": "greenhouse", "token": "wpengine"},
-    {"type": "greenhouse", "token": "remotecom"},
     {"type": "ashby", "token": "zapier"},
     {"type": "ashby", "token": "supabase"},
     {"type": "ashby", "token": "deel"}
